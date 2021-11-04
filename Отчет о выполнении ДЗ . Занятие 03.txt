@@ -3,53 +3,116 @@
 
 1.Создайте виртуальную машину c Ubuntu 20.04 LTS (bionic) в GCE типа e2-medium в default VPC в любом регионе и зоне, например us-central1-a
 
- > Результат: не Выполенено
+ > Результат: Выполенено
+ > Комментарий: Версии Ubuntu 20.04 LTS присвоено имя Focal Fossa. В задании есть ссылка на неправильное имя версии (bionic), которое связано с версией Ubuntu 18.04.
 #
 2.Поставьте на нее PostgreSQL через sudo apt
 
- > Результат: не Выполенено
+ > Результат: Выполенено
 #
 3.Проверьте что кластер запущен через sudo -u postgres pg_lsclusters
 
- > Результат: не Выполенено
+ > Результат: Выполенено
 #
 4.Зайдите из под пользователя postgres в psql и сделайте произвольную таблицу с произвольным содержимым postgres=# create table test(c1 text); postgres=# insert into test values('1'); \q
- > Результат: не Выполенено
+ > Результат: Выполенено
  > #
 5.Остановите postgres например через sudo -u postgres pg_ctlcluster 13 main stop
- > Результат: не Выполенено
+ > Результат: Выполенено
+ > Комментарий: Для версии Ubuntu 20.04 LTS из репозитория доступна версия Postresql 12. Задание ссылается на версию 13. 
  > #
 6.Создайте новый standard persistent диск GKE через Compute Engine -> Disks в том же регионе и зоне что GCE инстанс размером например 10GB
- > Результат: не Выполенено
+ > Результат: Выполенено
 #
 7.Добавьте свеже-созданный диск к виртуальной машине - надо зайти в режим ее редактирования и дальше выбрать пункт attach existing disk
- > Результат: не Выполенено
+ > Результат: Выполенено
 #
 8.Проинициализируйте диск согласно инструкции и подмонтировать файловую систему, только не забывайте менять имя диска на актуальное, в вашем случае это скорее всего будет /dev/sdb - https://www.digitalocean.com/community/tutorials/how-to-partition-and-format-storage-devices-in-linux
- > Результат: не Выполенено
+ > Результат: Выполенено
 #
 9.Сделайте пользователя postgres владельцем /mnt/data - chown -R postgres:postgres /mnt/data/
- > Результат: не Выполенено
+ > Результат: Выполенено
 #
 10.Перенесите содержимое /var/lib/postgres/13 в /mnt/data - mv /var/lib/postgresql/13 /mnt/data
- > Результат: не Выполенено
+ > Результат:  Выполенено
+ > Комментарий: Поскольку папка /var/lib/postgres/13 отсутвует, перемещение выполнено для папки /var/lib/postgres/12
+```
+sudo -u postgres psql -c "show data_directory"
+       data_directory
+-----------------------------
+ /var/lib/postgresql/12/main
+(1 row)
+```
 #
 11.Попытайтесь запустить кластер - sudo -u postgres pg_ctlcluster 13 main start
 напишите получилось или нет и почему
- > Результат: не Выполенено
+ > Результат: Выполенено. При попытке запуска кластера возникла ошибка:
+```
+Error: /var/lib/postgresql/12/main is not accessible or does not exist
+```
 #
 12.Задание: найти конфигурационный параметр в файлах раположенных в /etc/postgresql/10/main который надо поменять и поменяйте его
 напишите что и почему поменяли
- > Результат: не Выполенено
+ > Результат: Выполенено. В файле /etc/postgresql/12/main/postgresql.conf измененено значение параметра data_directory:
+```
+#data_directory = '/var/lib/postgresql/12/main'   
+data_directory = '/mnt/data/12/main'      
+```
+Данный параметр определяет расположение папки с данными, поскольку папка была перемещена, значение параметра необходимо скорректировать.
 #
 13.Попытайтесь запустить кластер - sudo -u postgres pg_ctlcluster 13 main start
 напишите получилось или нет и почему
- > Результат: не Выполенено
+ > Результат: Выполенено. Кластер успешно запущен, поскольку значение параметра data_directory содержит верное значение.
 #
 14.Зайдите через через psql и проверьте содержимое ранее созданной таблицы
- > Результат: не Выполенено
+ > Результат: Выполенено. Содержимое таблицы сохранилось.
+```postgres=# select * from test;
+ c1
+----
+ 1
+(1 row)
+```
 #
 15.Задание со звездочкой *: не удаляя существующий GCE инстанс сделайте новый, поставьте на его PostgreSQL, удалите файлы с данными из /var/lib/postgres, перемонтируйте внешний диск который сделали ранее от первой виртуальной машины ко второй и запустите PostgreSQL на второй машине так чтобы он работал с данными на внешнем диске, расскажите как вы это сделали и что в итоге получилось.
- > Результат: не Выполенено
+ > Результат:  Выполенено
+
+Шаг1. Создаем новый экземпляр ВМ instance-3 c ОС Ubuntu 20.04 LTS. Устанавливаем posgresql 12. используя apt. Останавливаем кластер. Переносим /var/lib/postgres в home/User/backup/
+Шаг2. Остановка кластера posgresql. Демонтирование папки /mnt/data/.Остановка экземпляра ВМ instance-2:
+```User@instance-2:~$ sudo -u postgres  pg_ctlcluster 12 main stop
+  sudo systemctl stop postgresql@12-main
+User@instance-2:~$ sudo -u postgres pg_lsclusters
+Ver Cluster Port Status Owner    Data directory    Log file
+12  main    5432 down   postgres /mnt/data/12/main /var/log/postgresql/postgresql-12-main.log
+User@instance-2:~$ sudo umount /mnt/data
+User@instance-2:~$  sudo shutdown
+Shutdown scheduled for Thu 2021-11-04 20:18:56 UTC, use 'shutdown -c' to cancel.
+```
+Шаг3. Отключение диска от экземпляра ВМ instance-2:
+```gcloud compute instances detach-disk instance-2 --disk disk-1
+No zone specified. Using zone [us-central1-c] for instance: [instance-2].
+Updated [https://www.googleapis.com/compute/v1/projects/postgres2021-lobach-02/zones/us-central1-c/instances/instance-2].`
+```
+Шаг3. Подключение диска disk-1 к экземпляру ВМ instance-3 через UI GCP
+Шаг4. Создание новой папки для ВМ instance-3. Установка прав доступа. Монтирование внешнего диска:
+```
+mkdir /mnt/pgdata
+sudo chown -R postgres:postgres /mnt/pgdata
+sudo mount -o defaults /dev/sdb1 /mnt/pgdata
+```
+Шаг 5. Установка корректного значения параметра data_directory. Запуск кластера. Проверка статуса - кластер успешно запущен:
+```
+User@instance-3:~$ sudo -u postgres pg_lsclusters
+Ver Cluster Port Status Owner    Data directory      Log file
+12  main    5432 online postgres /mnt/pgdata/12/main /var/log/postgresql/postgresql-12-main.log
+```
+Шаг 6. Проверяем доступность данных в БД с подключенного диска:
+```
+postgres=# select * from test;
+ c1
+----
+ 1
+(1 row)
+```
 #
-ДЗ оформите в markdown на github с описанием что делали и с какими проблемами столкнулись. Также приложите имя Гугл проекта, где пользователь ifti@yandex.ru добавлен в роли project editor.
+Имя Гугл проекта, где выполнялась работа и пользователь ifti@yandex.ru добавлен в роли project editor : 
+>postgres2021-lobach-02 
