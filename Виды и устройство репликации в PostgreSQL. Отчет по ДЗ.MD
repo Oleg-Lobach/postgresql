@@ -704,5 +704,15 @@ repdb=# select * from test2;
 ```
 # 13. Написать с какими проблемами столкнулись.
  - Возникла сложность с настройкой параметров доступа для пользователей. Настройки доступа для логической и физической репликации отличаются. Пришлось гуглить правильные параметры.
- - Непонятно какое имя необходимо задавать при настройке синхронной репликации для параметра synchronous_standby_names. Пришлось использовать значение '*', значение 'walreceiver' не привело к переключению режима из асинхронного в синхронный
+ - Непонятно какое имя необходимо задавать при настройке синхронной репликации для параметра synchronous_standby_names. Пришлось использовать значение '*'. Использование значения 'walreceiver' не привело к переключению режима из асинхронного в синхронный,хотя судя по документации должно было:
+```
+https://www.postgresql.org/docs/current/runtime-config-replication.html:
+The name of a standby server for this purpose is the application_name setting of the standby, as set in the standby's connection information. In case of a physical replication standby, this should be set in the primary_conninfo setting; the default is the setting of cluster_name if set, else walreceiver.
+ВМ4:
+repdb=# show primary_conninfo;
+
+-[ RECORD 1 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+primary_conninfo | user=repstreamuser password=123stream channel_binding=prefer host=10.128.0.12 port=5432 sslmode=prefer sslcompression=0 sslsni=1 ssl_min_protocol_version=TLSv1.2 gssencmode=prefer krbsrvname=postgres target_session_attrs=any
+
+```
  - В документации указано, что одновременное использование синхронного режима репликации  и слота репликации допустимо и позволяет повысить уровень надежности. Не очень понятно почему. Ведь синхронная репликация в режиме remote_apply гарантирует согласованность данных. 
