@@ -314,7 +314,7 @@ repdb=# select * from test;
 
 ```  
 
-### 9. Реализовать горячее реплицирование для высокой доступности на 4ВМ. Источником должна выступать ВМ №3. Написать с какими проблемами столкнулись.
+### 9. Реализовать горячее реплицирование для высокой доступности на 4ВМ. Источником должна выступать ВМ №3. 
 #### 9.1 Выполним настройку ВМ3 для физической репликции
 ##### 9.1.1 Разрешим подключение к ВМ3 на внешний ip-адрес
 ``` 
@@ -469,88 +469,138 @@ repdb=# select * from test;
 #### 10.1 Для ВМ1
 ```
 repdb=#postgres-# select * from pg_stat_replication
-postgres-# repdb=# -[ RECORD 1 ]----+------------------------------
-postgres-# repdb-# pid              | 8616
-postgres-# repdb-# usesysid         | 16403
-postgres-# repdb-# usename          | repuser
-postgres-# repdb-# application_name | sub_test2
-postgres-# repdb-# client_addr      | 10.128.0.10
-postgres-# repdb-# client_hostname  |
-postgres-# repdb-# client_port      | 55338
-postgres-# repdb-# backend_start    | 2022-01-07 14:29:20.887568+00
-postgres-# repdb-# backend_xmin     |
-postgres-# repdb-# state            | streaming
-postgres-# repdb-# sent_lsn         | 0/1734448
-postgres-# repdb-# write_lsn        | 0/1734448
-postgres-# repdb-# flush_lsn        | 0/1734448
-postgres-# repdb-# replay_lsn       | 0/1734448
-postgres-# repdb-# write_lag        |
-postgres-# repdb-# flush_lag        |
-postgres-# repdb-# replay_lag       |
-postgres-# repdb-# sync_priority    | 0
-postgres-# repdb-# sync_state       | async
-postgres-# repdb-# reply_time       | 2022-01-07 15:49:48.989931+00
-postgres-# repdb-# -[ RECORD 2 ]----+------------------------------
-postgres-# repdb-# pid              | 8747
-```
-#### 10.2 Для ВМ2
-```
-repdb=# select * from pg_stat_replication \gx
 -[ RECORD 1 ]----+------------------------------
-pid              | 8616
+pid              | 852
 usesysid         | 16403
 usename          | repuser
-application_name | sub_test2
-client_addr      | 10.128.0.10
+application_name | sub_test
+client_addr      | 10.128.0.11
 client_hostname  |
-client_port      | 55338
-backend_start    | 2022-01-07 14:29:20.887568+00
+client_port      | 34570
+backend_start    | 2022-01-08 08:14:07.910158+00
 backend_xmin     |
 state            | streaming
-sent_lsn         | 0/1734448
-write_lsn        | 0/1734448
-flush_lsn        | 0/1734448
-replay_lsn       | 0/1734448
+sent_lsn         | 0/1732C88
+write_lsn        | 0/1732C88
+flush_lsn        | 0/1732C88
+replay_lsn       | 0/1732C88
 write_lag        |
 flush_lag        |
 replay_lag       |
 sync_priority    | 0
 sync_state       | async
-reply_time       | 2022-01-07 15:49:48.989931+00
+reply_time       | 2022-01-08 08:22:10.553972+00
 -[ RECORD 2 ]----+------------------------------
-pid              | 8747
+pid              | 854
+
+```
+#### 10.2 Для ВМ2
+```
+repdb=# select * from pg_stat_replication \gx
+-[ RECORD 1 ]----+------------------------------
+pid              | 695
+usesysid         | 16403
+usename          | repuser
+application_name | sub_test2
+client_addr      | 10.128.0.10
+client_hostname  |
+client_port      | 41864
+backend_start    | 2022-01-08 08:14:10.644554+00
+backend_xmin     |
+state            | streaming
+sent_lsn         | 0/1734D20
+write_lsn        | 0/1734D20
+flush_lsn        | 0/1734D20
+replay_lsn       | 0/1734D20
+write_lag        |
+flush_lag        |
+replay_lag       |
+sync_priority    | 0
+sync_state       | async
+reply_time       | 2022-01-08 08:26:21.044375+00
+-[ RECORD 2 ]----+------------------------------
+pid              | 844
+
 
 ```
 #### 10.3 Для ВМ3
 ```
-select * from pg_stat_replication
-repdb=# -[ RECORD 1 ]----+------------------------------
-repdb-# pid              | 8616
-repdb-# usesysid         | 16403
-repdb-# usename          | repuser
-repdb-# application_name | sub_test2
-repdb-# client_addr      | 10.128.0.10
-repdb-# client_hostname  |
-repdb-# client_port      | 55338
-repdb-# backend_start    | 2022-01-07 14:29:20.887568+00
-repdb-# backend_xmin     |
-repdb-# state            | streaming
-repdb-# sent_lsn         | 0/1734448
-repdb-# write_lsn        | 0/1734448
-repdb-# flush_lsn        | 0/1734448
-repdb-# replay_lsn       | 0/1734448
-repdb-# write_lag        |
-repdb-# flush_lag        |
-repdb-# replay_lag       |
-repdb-# sync_priority    | 0
-repdb-# sync_state       | async
-repdb-# reply_time       | 2022-01-07 15:49:48.989931+00
-repdb-# -[ RECORD 2 ]----+------------------------------
-repdb-# pid              | 8747
+postgres=# select * from pg_stat_replication \gx
+-[ RECORD 1 ]----+------------------------------
+pid              | 854
+usesysid         | 16409
+usename          | repstreamuser
+application_name | 14/main
+client_addr      | 10.128.0.13
+client_hostname  |
+client_port      | 57020
+backend_start    | 2022-01-08 08:14:24.871834+00
+backend_xmin     |
+state            | streaming
+sent_lsn         | 0/3000958
+write_lsn        | 0/3000958
+flush_lsn        | 0/3000958
+replay_lsn       | 0/3000958
+write_lag        |
+flush_lag        |
+replay_lag       |
+sync_priority    | 0
+sync_state       | async
+reply_time       | 2022-01-08 08:23:38.724791+00
+
 
 ```
-### 11 Проверим работу настроенного механизма репликации на реальных данных
-#### 11.1 Добавим данные в таблицу test на ВМ1
+### 11 Настроим синхронный режим для репликации ВМ3->ВМ4
+#### 11.1 Установим необходимые параметры
+```
+ostgres@instance-12-3:/home/User$ echo "synchronous_standby_names  = '*'" >>  /etc/postgresql/14/main/postgresql.conf
+postgres@instance-12-3:/home/User$ echo "synchronous_commit = remote_apply" >>  /etc/postgresql/14/main/postgresql.conf
+
+```
+#### 11.2 После рестарта кластера проверим, что параметры установлены верно
+```
+postgres=# show synchronous_standby_names;
+ synchronous_standby_names
+---------------------------
+ *
+(1 row)
+
+postgres=# show synchronous_commit;
+ synchronous_commit
+--------------------
+ remote_apply
+(1 row)
+
+```
+#### 11.3 Убедимся, что статус репликации на ВМ3 изменился на синхронный
+```
+
+postgres=#  select * from pg_stat_replication \gx
+-[ RECORD 1 ]----+------------------------------
+pid              | 1737
+usesysid         | 16409
+usename          | repstreamuser
+application_name | 14/main
+client_addr      | 10.128.0.13
+client_hostname  |
+client_port      | 57410
+backend_start    | 2022-01-08 09:56:04.525641+00
+backend_xmin     |
+state            | streaming
+sent_lsn         | 0/3000FD0
+write_lsn        | 0/3000FD0
+flush_lsn        | 0/3000FD0
+replay_lsn       | 0/3000FD0
+write_lag        | 00:00:00.002155
+flush_lag        | 00:00:00.002168
+replay_lag       | 00:00:00.002175
+sync_priority    | 1
+sync_state       | sync
+reply_time       | 2022-01-08 09:56:14.71666+00
+
+```
+### 12 Проверим работу настроенного механизма репликации на реальных данных
+#### 12.1 Добавим данные в таблицу test на ВМ1
 ```
 repdb=#  insert into test values  ( 3, 'Ольга', 29), ( 4, 'Андрей', 23);
 INSERT 0 2
@@ -563,7 +613,7 @@ repdb=# select * from test;
   4 | Андрей   |  23
 (4 rows)
 ```
-#### 11.2 Добавим данные в таблицу test2 на ВМ2
+#### 12.2 Добавим данные в таблицу test2 на ВМ2
 ```
 repdb=# insert into test2 values (1, 'Рязань'),(2, 'Калининград');
 INSERT 0 2
@@ -575,8 +625,8 @@ repdb=# select * from test2;
 (2 rows)
 
 ```
-#### 11.3 Убедимся, что всех ВМ в таблицах test и test2 присутствуют идентичные данные
-##### 11.3.1 Для ВМ1
+#### 12.3 Убедимся, что всех ВМ в таблицах test и test2 присутствуют идентичные данные
+##### 12.3.1 Для ВМ1
 ```
 repdb=# select * from test;
  id |   name   | age
@@ -595,7 +645,7 @@ repdb=# select * from test2;
 (2 rows)
 
 ```
-##### 11.3.2 Для ВМ2
+##### 12.3.2 Для ВМ2
 ```
 repdb=# select * from test;
  id |   name   | age
@@ -614,7 +664,7 @@ repdb=# select * from test2;
 (2 rows)
 
 ```
-##### 11.3.3 Для ВМ3
+##### 12.3.3 Для ВМ3
 ```
 repdb=# select * from test;
  id |   name   | age
@@ -633,7 +683,7 @@ repdb=# select * from test2;
 (2 rows)
 
 ```
-#### 11.3.4 Для ВМ4
+#### 12.3.4 Для ВМ4
 ```
 repdb=# select * from test;
  id |   name   | age
@@ -652,3 +702,7 @@ repdb=# select * from test2;
 (2 rows)
 
 ```
+# 13. Написать с какими проблемами столкнулись.
+ - Возникла сложность с настройкой параметров доступа для пользователей. Настройки доступа для логической и физической репликации отличаются. Пришлось гуглить правильные параметры.
+ - Непонятно какое имя необходимо задавать при настройке синхронной репликации для параметра synchronous_standby_names. Пришлось использовать значение '*', значение 'walreceiver' не привело к переключению режима из асинхронного в синхронный
+ - В документации указано, что одновременное использование синхронного режима репликации  и слота репликации допустимо и позволяет повысить уровень надежности. Не очень понятно почему. Ведь синхронная репликация в режиме remote_apply гарантирует согласованность данных. 
