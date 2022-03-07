@@ -1,0 +1,355 @@
+# Домашнее задание
+
+## Работа с горизонтально масштабируемым кластером 
+## Цель: Развернуть multi master кластер PostgreSQL-like своими руками
+
+## 1. Выполним подготовку инфраструктуры
+
+## 1.1 Создадим 3 ВМ в GCP в конфигурации e2-medium (2 CPU, 4GB RAM), 50 GB SDD.
+```
+C:\Users\User\AppData\Local\Google\Cloud SDK>gcloud compute instances create cockroach-01 --project=pgdba-340419 --zone=us-central1-c --machine-type=e2-medium --network-interface=network-tier=PREMIUM,subnet=default --maintenance-policy=MIGRATE --service-account=13258540026-compute@developer.gserviceaccount.com --scopes=https://www.googleapis.com/auth/cloud-platform --create-disk=auto-delete=yes,boot=yes,device-name=cockroach-01,image=projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20220204,mode=rw,size=50,type=projects/pgdba-340419/zones/us-central1-c/diskTypes/pd-ssd --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --reservation-affinity=any
+Created [https://www.googleapis.com/compute/v1/projects/pgdba-340419/zones/us-central1-c/instances/cockroach-01].
+WARNING: Some requests generated warnings:
+ - Disk size: '50 GB' is larger than image size: '10 GB'. You might need to resize the root repartition manually if the operating system does not support automatic resizing. See https://cloud.google.com/compute/docs/disks/add-persistent-disk#resize_pd for details.
+
+NAME          ZONE           MACHINE_TYPE  PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP     STATUS
+cockroach-01  us-central1-c  e2-medium                  10.128.0.3   104.154.111.98  RUNNING
+
+C:\Users\User\AppData\Local\Google\Cloud SDK>gcloud compute instances create cockroach-02 --project=pgdba-340419 --zone=us-central1-c --machine-type=e2-medium --network-interface=network-tier=PREMIUM,subnet=default --maintenance-policy=MIGRATE --service-account=13258540026-compute@developer.gserviceaccount.com --scopes=https://www.googleapis.com/auth/cloud-platform --create-disk=auto-delete=yes,boot=yes,device-name=cockroach-01,image=projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20220204,mode=rw,size=50,type=projects/pgdba-340419/zones/us-central1-c/diskTypes/pd-ssd --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --reservation-affinity=any
+Created [https://www.googleapis.com/compute/v1/projects/pgdba-340419/zones/us-central1-c/instances/cockroach-02].
+WARNING: Some requests generated warnings:
+ - Disk size: '50 GB' is larger than image size: '10 GB'. You might need to resize the root repartition manually if the operating system does not support automatic resizing. See https://cloud.google.com/compute/docs/disks/add-persistent-disk#resize_pd for details.
+
+NAME          ZONE           MACHINE_TYPE  PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP     STATUS
+cockroach-02  us-central1-c  e2-medium                  10.128.0.4   104.197.164.27  RUNNING
+
+gcloud compute instances create cockroach-03 --project=pgdba-340419 --zone=us-central1-c --machine-type=e2-medium --network-interface=network-tier=PREMIUM,subnet=default --maintenance-policy=MIGRATE --service-account=13258540026-compute@developer.gserviceaccount.com --scopes=https://www.googleapis.com/auth/cloud-platform --create-disk=auto-delete=yes,boot=yes,device-name=cockroach-01,image=projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20220204,mode=rw,size=50,type=projects/pgdba-340419/zones/us-central1-c/diskTypes/pd-ssd --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --reservation-affinity=any
+
+C:\Users\User\AppData\Local\Google\Cloud SDK>gcloud compute instances create cockroach-03 --project=pgdba-340419 --zone=us-central1-c --machine-type=e2-medium --network-interface=network-tier=PREMIUM,subnet=default --maintenance-policy=MIGRATE --service-account=13258540026-compute@developer.gserviceaccount.com --scopes=https://www.googleapis.com/auth/cloud-platform --create-disk=auto-delete=yes,boot=yes,device-name=cockroach-01,image=projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20220204,mode=rw,size=50,type=projects/pgdba-340419/zones/us-central1-c/diskTypes/pd-ssd --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --reservation-affinity=any
+Created [https://www.googleapis.com/compute/v1/projects/pgdba-340419/zones/us-central1-c/instances/cockroach-03].
+WARNING: Some requests generated warnings:
+ - Disk size: '50 GB' is larger than image size: '10 GB'. You might need to resize the root repartition manually if the operating system does not support automatic resizing. See https://cloud.google.com/compute/docs/disks/add-persistent-disk#resize_pd for details.
+
+NAME          ZONE           MACHINE_TYPE  PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP    STATUS
+cockroach-03  us-central1-c  e2-medium                  10.128.0.5   35.193.67.220  RUNNING
+
+```
+### 1.2 Выполним установку cockroachdb на трех ВМ
+```
+C:\Users\User\AppData\Local\Google\Cloud SDK>gcloud compute ssh cockroach-01
+C:\Users\User\AppData\Local\Google\Cloud SDK>gcloud compute ssh cockroach-02
+C:\Users\User\AppData\Local\Google\Cloud SDK>gcloud compute ssh cockroach-03
+
+wget -qO- https://binaries.cockroachdb.com/cockroach-v21.2.6.linux-amd64.tgz | tar  xvz && sudo cp -i cockroach-v21.2.6.linux-amd64/cockroach /usr/local/bin/ && sudo mkdir -p /opt/cockroach && sudo chown User:User /opt/cockroach
+
+User@cockroach-01:~$ wget -qO- https://binaries.cockroachdb.com/cockroach-v21.2.6.linux-amd64.tgz | tar  xvz && sudo cp -i cockroach-v21.2.6.linux-amd64/cockroach /usr/local/bin/ && sudo mkdir -p /opt/cockroach && sudo chown User:User /opt/cockroach
+cockroach-v21.2.6.linux-amd64/cockroach
+cockroach-v21.2.6.linux-amd64/lib/libgeos.so
+cockroach-v21.2.6.linux-amd64/lib/libgeos_c.so
+
+```
+### 1.3 Настройка общей папки NFS
+#### 1.3.1 Настройка на сервере
+#### 1.3.1.1 Установим необходимое ПО
+```
+$ sudo apt update
+$ sudo apt install nfs-kernel-server
+$ sudo mkdir /var/nfs/exchange -p
+$ sudo chown nobody:nogroup /var/nfs/exchange 
+```
+##### 1.3.1.2 Отредактируем файл конфигурации nfs
+```
+$ sudo nano /etc/exports
+
+User@instance-15:~$ sudo cat /etc/exports
+/var/nfs/exchange    10.128.0.3(rw,sync,no_subtree_check)
+/var/nfs/exchange    10.128.0.4(rw,sync,no_subtree_check)
+/var/nfs/exchange    10.128.0.5(rw,sync,no_subtree_check)
+$ sudo systemctl restart nfs-kernel-server
+```
+##### 1.3.1.3 Настроим брандмауэр
+```
+User@instance-15:~$ sudo ufw allow from 10.128.0.3 to any port nfs
+Rules updated
+User@instance-15:~$ sudo ufw allow from 10.128.0.4 to any port nfs
+Rules updated
+User@instance-15:~$ sudo ufw allow from 10.128.0.5 to any port nfs
+Rules updated
+```
+
+#### 1.3.2 Настройка NFS на клиентах 
+Повторяем для трех ВМ:
+```
+User@cockroach-01:~$ sudo apt update
+
+User@cockroach-01:~$ sudo apt install nfs-common
+
+User@cockroach-01:~$ sudo mkdir -p /nfs/general
+
+User@cockroach-01:~$ sudo mount 10.128.0.2:/var/nfs/exchange /nfs/general
+
+User@cockroach-01:~$ df -h
+Filesystem                    Size  Used Avail Use% Mounted on
+/dev/root                      49G  2.8G   46G   6% /
+...
+10.128.0.2:/var/nfs/exchange   88G  4.0G   84G   5% /nfs/general
+```
+
+## 2. Разворачиваем кластер cockroach
+### 2.1 Создаем сертификаты для работы cockroach
+```
+User@cockroach-01:~$ sudo cockroach cert create-ca --certs-dir=certs --ca-key=/nfs/general/ca.key
+User@cockroach-01:~$ sudo cockroach cert create-node localhost cockroach-01 cockroach-02 cockroach-03  --certs-dir=certs --ca-key=/nfs/general/ca.key --overwrite
+User@cockroach-01:~$ sudo cockroach cert create-client root --certs-dir=certs --ca-key=/nfs/general/ca.key
+User@cockroach-01:~$ sudo cockroach cert list --certs-dir=certs
+Certificate directory: certs
+  Usage  | Certificate File |    Key File     |  Expires   |                            Notes                            | Error
+---------+------------------+-----------------+------------+-------------------------------------------------------------+--------
+  CA     | ca.crt           |                 | 2032/03/14 | num certs: 1                                                |
+  Node   | node.crt         | node.key        | 2027/03/11 | addresses: localhost,cockroach-01,cockroach-02,cockroach-03 |
+  Client | client.root.crt  | client.root.key | 2027/03/11 | user: root                                                  |
+(3 rows)
+
+User@cockroach-01:~$ sudo cp -r ~/certs /nfs/general
+User@cockroach-01:~$ sudo chown -R User:User ~/certs
+User@cockroach-01:~$ chmod 700 ~/certs/*
+User@cockroach-01:~$ cockroach cert list --certs-dir=certs
+Certificate directory: certs
+  Usage  | Certificate File |    Key File     |  Expires   |                            Notes                            | Error
+---------+------------------+-----------------+------------+-------------------------------------------------------------+--------
+  CA     | ca.crt           |                 | 2032/03/14 | num certs: 1                                                |
+  Node   | node.crt         | node.key        | 2027/03/11 | addresses: localhost,cockroach-01,cockroach-02,cockroach-03 |
+  Client | client.root.crt  | client.root.key | 2027/03/11 | user: root                                                  |
+(3 rows)
+
+```
+### 2.2 Копируем сертификаты на все ноды
+```
+User@cockroach-02:~$ sudo cp -r  /nfs/general ~/certs
+User@cockroach-02:~$ sudo chown -R User:User ~/certs
+User@cockroach-02:~$ chmod 700 ~/certs/*
+User@cockroach-02:~$ cp -r ~/certs/* ~
+
+User@cockroach-02:~$ cockroach cert list --certs-dir=certs
+Certificate directory: certs
+  Usage  | Certificate File |    Key File     |  Expires   |                            Notes                            | Error
+---------+------------------+-----------------+------------+-------------------------------------------------------------+--------
+  CA     | ca.crt           |                 | 2032/03/14 | num certs: 1                                                |
+  Node   | node.crt         | node.key        | 2027/03/11 | addresses: localhost,cockroach-01,cockroach-02,cockroach-03 |
+  Client | client.root.crt  | client.root.key | 2027/03/11 | user: root                                                  |
+(3 rows)
+...
+User@cockroach-03:~$ cockroach cert list --certs-dir=certs
+Certificate directory: certs
+  Usage  | Certificate File |    Key File     |  Expires   |                            Notes                            | Error
+---------+------------------+-----------------+------------+-------------------------------------------------------------+--------
+  CA     | ca.crt           |                 | 2032/03/14 | num certs: 1                                                |
+  Node   | node.crt         | node.key        | 2027/03/11 | addresses: localhost,cockroach-01,cockroach-02,cockroach-03 |
+  Client | client.root.crt  | client.root.key | 2027/03/11 | user: root                                                  |
+(3 rows)
+
+```
+### 2.3 Запускаем кластеры cockroach на трех ВМ
+### 2.3.1 Запускаем экземпляры cockroach на трех ВМ
+```
+cockroach start --certs-dir=certs --advertise-addr=cockroach-01 --join=cockroach-01,cockroach-02,cockroach-03 --cache=.25 --max-sql-memory=.25 --background 
+User@cockroach-01:~$ cockroach start --certs-dir=certs --advertise-addr=cockroach-01 --join=cockroach-01,cockroach-02,cockroach-03 --cache=.25 --max-sql-memory=.25 --background
+*
+* INFO: initial startup completed.
+* Node will now attempt to join a running cluster, or wait for `cockroach init`.
+* Client connections will be accepted after this completes successfully.
+* Check the log file(s) for progress.
+*
+
+User@cockroach-02:~$ cockroach start --certs-dir=certs --advertise-addr=cockroach-02 --join=cockroach-01,cockroach-02,cockroach-03 --cache=.25 --max-sql-memory=.25 --background
+*
+* INFO: initial startup completed.
+* Node will now attempt to join a running cluster, or wait for `cockroach init`.
+* Client connections will be accepted after this completes successfully.
+* Check the log file(s) for progress.
+*
+User@cockroach-03:~$ cockroach start --certs-dir=certs --advertise-addr=cockroach-03 --join=cockroach-01,cockroach-02,cockroach-03 --cache=.25 --max-sql-memory=.25 --background
+*
+* INFO: initial startup completed.
+* Node will now attempt to join a running cluster, or wait for `cockroach init`.
+* Client connections will be accepted after this completes successfully.
+* Check the log file(s) for progress.
+*
+```
+### 2.3.2 Инициализируем кластер
+```
+User@cockroach-01:~$ cockroach init --certs-dir=certs --host=cockroach-01
+Cluster successfully initialized
+User@cockroach-01:~$ cockroach node status --certs-dir=certs
+  id |      address       |    sql_address     |  build  |         started_at         |         updated_at         | locality | is_available | is_live
+-----+--------------------+--------------------+---------+----------------------------+----------------------------+----------+--------------+----------
+   1 | cockroach-01:26257 | cockroach-01:26257 | v21.2.6 | 2022-03-07 12:27:15.068905 | 2022-03-07 12:28:18.117749 |          | true         | true
+   2 | cockroach-02:26257 | cockroach-02:26257 | v21.2.6 | 2022-03-07 12:27:16.377313 | 2022-03-07 12:28:14.911732 |          | true         | true
+   3 | cockroach-03:26257 | cockroach-03:26257 | v21.2.6 | 2022-03-07 12:27:16.680419 | 2022-03-07 12:28:15.208553 |          | true         | true
+(3 rows)
+
+```
+
+
+**Вывод**: Развернут multimaster кластер на базе трех узлов cockroach.
+## 3. Проведем тестирование кластера 
+### 3.1 Загрузим данные на узел cockroach-01 -  выборка в 10 ГБ из БД 'Чикагское такси'
+
+```
+User@cockroach-01:~$ mkdir /tmp/taxi_data
+User@cockroach-01:~$  gsutil -m cp -R gs://msk_dba_bucket/taxi_0000000000[0-3]*.csv /tmp/taxi_data/                         Copying gs://msk_dba_bucket/taxi_000000000000.csv...
+Copying gs://msk_dba_bucket/taxi_000000000001.csv...
+...
+- [40/40 files][ 10.0 GiB/ 10.0 GiB] 100% Done  93.7 MiB/s ETA 00:00:00
+Operation completed over 40 objects/10.0 GiB.
+
+```
+### 3.2 Создадим необходимые сущности в БД
+```
+User@cockroach-01:~$ cockroach sql --certs-dir=certs
+#
+# Welcome to the CockroachDB SQL shell.
+# All statements must be terminated by a semicolon.
+# To exit, type: \q.
+#
+# Server version: CockroachDB CCL v21.2.6 (x86_64-unknown-linux-gnu, built 2022/02/22 18:30:37, go1.16.6) (same version as client)
+# Cluster ID: 0dba2c1d-30f8-4550-a3f5-4eb0d7a49855
+#
+# Enter \? for a brief introduction.
+#
+root@:26257/defaultdb>
+
+root@:26257/defaultdb> create database taxi;
+CREATE DATABASE
+
+
+Time: 16ms total (execution 16ms / network 0ms)
+
+root@:26257/defaultdb> \c taxi
+using new connection URL: postgresql://root@:26257/taxi?application_name=%24+cockroach+sql&connect_timeout=15&sslcert=certs%2Fclient.root.crt&sslkey=certs%2Fclient.root.key&sslmode=verify-full&sslrootcert=certs%2Fca.crt
+root@:26257/taxi> create table taxi_trips (
+ unique_key text,
+ taxi_id text,
+ trip_start_timestamp TIMESTAMP,
+ trip_end_timestamp TIMESTAMP,
+ trip_seconds bigint,
+ trip_miles numeric,
+ pickup_census_tract bigint,
+ dropoff_census_tract bigint,
+ pickup_community_area bigint,
+ dropoff_community_area bigint,
+ fare numeric,
+ tips numeric,
+ tolls numeric,
+ extras numeric,
+ trip_total numeric,
+ payment_type text,
+ company text,
+ pickup_latitude numeric,
+ pickup_longitude numeric,
+ pickup_location text,
+ dropoff_latitude numeric,
+ dropoff_longitude numeric,
+ dropoff_location text
+ );
+CREATE TABLE
+
+
+Time: 21ms total (execution 21ms / network 0ms)
+```
+### 3.3 Выполним копирование данных в БД
+### 3.3.1 Используем команду COPY
+```
+root@:26257/taxi> COPY taxi_trips(unique_key,
+taxi_id, trip_start_timestamp,trip_end_timestamp,trip_seconds,trip_miles,pickup_census_tract,dropoff_census_tract,pickup_community_area,dropoff_community_area,fare,tips,
+tolls,extras,trip_total,payment_type,company,pickup_latitude,pickup_longitude,pickup_location,dropoff_latitude,dropoff_longitude,dropoff_location)
+FROM PROGRAM 'awk FNR-1 /tmp/taxi_data/*.csv | cat' DELIMITER ',' CSV HEADER;
+invalid syntax: statement ignored: at or near "program": syntax error: unimplemented: this syntax
+SQLSTATE: 0A000
+DETAIL: source SQL:
+COPY taxi_trips(unique_key,
+taxi_id, trip_start_timestamp,trip_end_timestamp,trip_seconds,trip_miles,pickup_census_tract,dropoff_census_tract,pickup_community_area,dropoff_community_area,fare,tips,
+tolls,extras,trip_total,payment_type,company,pickup_latitude,pickup_longitude,pickup_location,dropoff_latitude,dropoff_longitude,dropoff_location)
+FROM PROGRAM 'awk FNR-1 /tmp/taxi_data/*.csv | cat' DELIMITER ',' CSV HEADER
+     ^
+HINT: You have attempted to use a feature that is not yet implemented.
+
+```
+**Вывод:** Синтаксис команды COPY не поддерживается
+### 3.3.2 Используем команду import
+```
+root@:26257/taxi> import INTO taxi_trips (unique_key,taxi_id, trip_start_timestamp,trip_end_timestamp,trip_seconds,trip_miles,pickup_census_tract,dropoff_census_tract,pickup_community_area,dropoff_community_area,fare,tips,tolls,extras,trip_total,payment_type,company,pickup_latitude,pickup_longitude,pickup_location,dropoff_latitude,dropoff_longitude,dropoff_location) CSV DATA ('gs://msk_dba_bucket/taxi_0000000000[0-3]*.csv?AUTH=implicit') WITH DELIMITER = ',', SKIP = '1';
+
+ERROR: gs://msk_dba_bucket/taxi_000000000034.csv?AUTH=implicit: error parsing row 2: parse "pickup_census_tract" as INT8: could not parse "" as type int: strconv.ParseInt: parsing "": invalid syntax (row: "c649cdbd339bb93c16512f2defe00c00a47dbda1,6e235f0eec31b0e7896536a45e90bd09ab000d66e8dc6c229c587ef2df8e5d27e09ec57541579d1d15df567555386a33c7868e795b2bab1b920ac4c8faaaa04a,2014-07-13 02:45:00 UTC,2014-07-13 02:45:00 UTC,0,0,,,,,13.85,2,0,0,15.85,Credit Card,T.A.S. - Payment Only,,,,,,")
+root@:26257/taxi>
+
+import INTO taxi_trips (unique_key,taxi_id, trip_start_timestamp,trip_end_timestamp,trip_seconds,trip_miles,pickup_census_tract,dropoff_census_tract,pickup_community_area,dropoff_community_area,fare,tips,tolls,extras,trip_total,payment_type,company,pickup_latitude,pickup_longitude,pickup_location,dropoff_latitude,dropoff_longitude,dropoff_location) CSV DATA ('gs://msk_dba_bucket/taxi_0000000000[0-2]*.csv?AUTH=implicit') WITH DELIMITER = ',', SKIP = '1';
+```
+**Вывод:** Команда import некорректно работает для значений с пустыми строками
+
+### 3.4 Для проведения тестов создадим таблицу в БД cockroach с синтетическими данными размером в 100 000 000 записей и выполним выборку данных
+#### 3.4.1 Добавим 100 000 000 записей в таблицу
+```
+root@:26257/test> create table goods as select generate_series as id, (random() * 70) as weight, date'2022-08-03' + (random() * 100)::int as ship_date, (array['registered', 'sold', 'shipped', 'utilized'])[(random() * 4)::int] as status from generate_series(1, 100000000);
+
+CREATE TABLE AS
+Time: 894.558s total (execution 894.558s / network 0.000s)
+```
+#### 3.4.2 Выполним выборку данных
+```
+root@:26257/test> select * from goods where status = 'sold' limit 10;
+  id |       weight       | ship_date  | status
+-----+--------------------+------------+---------
+   1 |  67.01697392480533 | 2022-09-12 | sold
+   3 |  9.834586831596226 | 2022-10-08 | sold
+   4 | 59.787700261151656 | 2022-11-10 | sold
+   5 |  8.256476059097015 | 2022-08-24 | sold
+   8 |  43.80566059095161 | 2022-09-13 | sold
+  10 |  7.387145601467208 | 2022-08-10 | sold
+  13 |  35.43413113183701 | 2022-10-27 | sold
+  15 | 57.651728992391504 | 2022-09-27 | sold
+  26 |   4.89445965356621 | 2022-08-15 | sold
+  27 | 19.214455711076454 | 2022-09-06 | sold
+(10 rows)
+
+Time: 13ms total (execution 13ms / network 0ms)
+
+root@:26257/test> select count(*) from goods;
+    count
+-------------
+  100000000
+(1 row)
+
+Time: 18.654s total (execution 18.653s / network 0.000s)
+```
+### 3.5 Для проведения тестов создадим таблицу в БД Postgresql из 100 000 000 записей и выполним выборку данных
+#### 3.5.1 Добавим 100 000 000 записей в таблицу
+```
+test=# \timing
+Timing is on.
+test=# create table goods as select generate_series as id, (random() * 70) as weight, date'2022-08-03' + (random() * 100)::int as ship_date, (array['registered', 'sold', 'shipped', 'utilized'])[(random() * 4)::int] as status from generate_series(1, 100000000);
+
+SELECT 100000000
+Time: 180479.436 ms (03:00.479)
+```
+#### 3.5.2 Выполним выборку данных
+```
+test=# select count(*) from goods;
+   count
+-----------
+ 100000000
+(1 row)
+
+Time: 27595.638 ms (00:27.596)
+```
+
+**Вывод:** Вставка данных с вычисляемыми полями быстрее выполняется на кластере Postgresql , однако выборка данных на кластере cockroach занимает меньше времени. 
+Разница в производительности при выборке будет заметна сильнее с ростом нагрузки на кластер.
+
+## 4. Материалы
+<https://www.cockroachlabs.com/docs/v21.2/install-cockroachdb-linux>
+
+<https://www.cockroachlabs.com/docs/v21.1/secure-a-cluster.html>
+
+<https://www.digitalocean.com/community/tutorials/how-to-set-up-an-nfs-mount-on-ubuntu-20-04-ru>
+
