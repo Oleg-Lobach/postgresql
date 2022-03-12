@@ -338,8 +338,9 @@ LINE 1: SELECT undistribute_table('taxitrips');^
 taxi=#SELECT truncate_local_data_after_distributing_table($$public.taxi_trips$$)
 ERROR:  function truncate_local_data_after_distributing_table(unknown) does not exist
 LINE 1: SELECT truncate_local_data_after_distributing_table($$public...
-**Вывод** На текущей версии мастера функции не поддерживается.
+.
 ```
+**Вывод** На текущей версии мастера функции не поддерживается
 ```
 taxi=# drop table taxi_trips;
 DROP TABLE
