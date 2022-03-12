@@ -340,7 +340,7 @@ ERROR:  function truncate_local_data_after_distributing_table(unknown) does not 
 LINE 1: SELECT truncate_local_data_after_distributing_table($$public...
 .
 ```
-**Вывод** На текущей версии мастера функции не поддерживается
+**Вывод:** На текущей версии мастера функции не поддерживается
 ```
 taxi=# drop table taxi_trips;
 DROP TABLE
