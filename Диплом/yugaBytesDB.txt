@@ -1,0 +1,200 @@
+1. Установим helm
+https://get.helm.sh/helm-canary-windows-amd64.zip
+
+2.Create GKE clusters
+ 
+2.1
+gcloud beta container --project "pgdba-340419" clusters create "yugabytedb1" --zone "us-central1-c" --no-enable-basic-auth --cluster-version "1.22.6-gke.1500" --release-channel "rapid" --machine-type "n1-standard-4" --image-type "COS_CONTAINERD" --disk-type "pd-standard" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --max-pods-per-node "110" --num-nodes "1" --logging=SYSTEM,WORKLOAD --monitoring=SYSTEM --enable-ip-alias --network "projects/pgdba-340419/global/networks/default" --subnetwork "projects/pgdba-340419/regions/us-central1/subnetworks/default" --no-enable-intra-node-visibility --default-max-pods-per-node "110" --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --enable-shielded-nodes --node-locations "us-central1-c"
+NAME         LOCATION       MASTER_VERSION   MASTER_IP       MACHINE_TYPE   NODE_VERSION     NUM_NODES  STATUS
+yugabytedb1  us-central1-c  1.22.6-gke.1500  107.178.219.54  n1-standard-4  1.22.6-gke.1500  1          RUNNING
+2.2
+gcloud beta container --project "pgdba-340419" clusters create "yugabytedb2" --zone "europe-north1-c" --no-enable-basic-auth --cluster-version "1.22.6-gke.1500" --release-channel "rapid" --machine-type "n1-standard-4" --image-type "COS_CONTAINERD" --disk-type "pd-standard" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --max-pods-per-node "110" --preemptible --num-nodes "1" --logging=SYSTEM,WORKLOAD --monitoring=SYSTEM --enable-ip-alias --network "projects/pgdba-340419/global/networks/default" --subnetwork "projects/pgdba-340419/regions/europe-north1/subnetworks/default" --no-enable-intra-node-visibility --default-max-pods-per-node "110" --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --enable-shielded-nodes --node-locations "europe-north1-c"
+NAME         LOCATION         MASTER_VERSION   MASTER_IP      MACHINE_TYPE   NODE_VERSION     NUM_NODES  STATUS
+yugabytedb2  europe-north1-c  1.22.6-gke.1500  35.228.231.15  n1-standard-4  1.22.6-gke.1500  1          RUNNING
+2.3
+gcloud beta container --project "pgdba-340419" clusters create "yugabytedb3" --zone "asia-south2-c" --no-enable-basic-auth --cluster-version "1.22.6-gke.1500" --release-channel "rapid" --machine-type "n1-standard-4" --image-type "COS_CONTAINERD" --disk-type "pd-standard" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --max-pods-per-node "110" --preemptible --num-nodes "1" --logging=SYSTEM,WORKLOAD --monitoring=SYSTEM --enable-ip-alias --network "projects/pgdba-340419/global/networks/default" --subnetwork "projects/pgdba-340419/regions/asia-south2/subnetworks/default" --no-enable-intra-node-visibility --default-max-pods-per-node "110" --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --enable-shielded-nodes --node-locations "asia-south2-c"
+NAME         LOCATION       MASTER_VERSION   MASTER_IP       MACHINE_TYPE   NODE_VERSION     NUM_NODES  STATUS
+yugabytedb3  asia-south2-c  1.22.6-gke.1500  34.131.111.215  n1-standard-4  1.22.6-gke.1500  1          RUNNING
+2.4
+c:\Projects\windows-amd64>kubectl config get-contexts
+CURRENT   NAME                                           CLUSTER                                        AUTHINFO                                       NAMESPACE
+*         gke_pgdba-340419_asia-south2-c_yugabytedb3     gke_pgdba-340419_asia-south2-c_yugabytedb3     gke_pgdba-340419_asia-south2-c_yugabytedb3
+          gke_pgdba-340419_europe-north1-c_yugabytedb2   gke_pgdba-340419_europe-north1-c_yugabytedb2   gke_pgdba-340419_europe-north1-c_yugabytedb2
+          gke_pgdba-340419_us-central1-c_yugabytedb1     gke_pgdba-340419_us-central1-c_yugabytedb1     gke_pgdba-340419_us-central1-c_yugabytedb1
+3. Подготовим манифесты для StorageClass и выполним привязку
+
+c:\Projects\PG_Diplom>kubectl apply -f gke-us-central1-c.yaml --context gke_pgdba-340419_us-central1-c_yugabytedb1
+storageclass.storage.k8s.io/standard-us-central1-c created
+c:\Projects\PG_Diplom>kubectl apply -f gke-europe-north1-c.yaml --context gke_pgdba-340419_europe-north1-c_yugabytedb2
+storageclass.storage.k8s.io/standard-europe-north1-c created
+c:\Projects\PG_Diplom>kubectl apply -f gke-asia-south2-c.yaml --context gke_pgdba-340419_asia-south2-c_yugabytedb3
+storageclass.storage.k8s.io/standard-asia-south2-c created
+
+4. Настроим глобальный DNS-сервис
+c:\Projects\PG_Diplom>python yb-multiregion-k8s-setup.py
+namespace/yb-demo-us-central1-c created
+service/kube-dns-lb created
+namespace/yb-demo-europe-north1-c created
+service/kube-dns-lb created
+namespace/yb-demo-asia-south2-c created
+service/kube-dns-lb created
+Waiting for DNS load balancer IP in us-central1-c...
+Waiting for DNS load balancer IP in us-central1-c...
+Waiting for DNS load balancer IP in us-central1-c...
+Waiting for DNS load balancer IP in us-central1-c...
+Waiting for DNS load balancer IP in us-central1-c...
+DNS endpoint for zone us-central1-c: 10.128.0.24
+Waiting for DNS load balancer IP in europe-north1-c...
+DNS endpoint for zone europe-north1-c: 10.166.0.5
+DNS endpoint for zone asia-south2-c: 10.190.0.3
+Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply
+configmap/kube-dns configured
+pod "kube-dns-56494768b7-5vqg4" deleted
+Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply
+configmap/kube-dns configured
+pod "kube-dns-56494768b7-n56kk" deleted
+Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply
+configmap/kube-dns configured
+pod "kube-dns-56494768b7-wb62d" deleted
+
+5. Создадим YugabyteDB cluster
+5.1 Дополним репозиторий helm
+c:\Projects\PG_Diplom\helm>helm repo add yugabytedb https://charts.yugabyte.com
+"yugabytedb" has been added to your repositories
+5.2 Обновим репозиторий helm
+c:\Projects\PG_Diplom\helm>helm repo update
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "yugabytedb" chart repository
+Update Complete. ⎈Happy Helming!⎈
+5.3 Проверим статус
+c:\Projects\PG_Diplom\helm>helm search repo yugabytedb/yugabyte
+NAME                    CHART VERSION   APP VERSION     DESCRIPTION
+yugabytedb/yugabyte     2.13.0          2.13.0.0-b42    YugabyteDB is the high-performance distributed ...
+
+6 
+6.1
+helm install yb-demo-us-central1-c yugabytedb/yugabyte --namespace yb-demo-us-central1-c -f ../overrides-us-central1-c.yaml --kube-context gke_pgdba-340419_us-central1-c_yugabytedb1 --wait
+6.2
+helm install yb-demo-europe-north1-c yugabytedb/yugabyte --namespace yb-demo-europe-north1-c -f ../overrides-europe-north1-c.yaml --kube-context gke_pgdba-340419_europe-north1-c_yugabytedb2 --wait
+6.3
+helm install yb-demo-asia-south2-c yugabytedb/yugabyte --namespace yb-demo-asia-south2-c -f ../overrides-asia-south2-c.yaml --kube-context gke_pgdba-340419_asia-south2-c_yugabytedb3  --wait
+
+
+7.
+7.1
+kubectl get pods -n yb-demo-us-central1-c --context gke_pgdba-340419_us-central1-c_yugabytedb1
+
+kubectl get pods -n yb-demo-europe-north1-c --context gke_pgdba-340419_europe-north1-c_yugabytedb2
+
+kubectl get pods -n yb-demo-asia-south2-c --context gke_pgdba-340419_asia-south2-c_yugabytedb3
+
+8.1
+>helm upgrade yb-demo-us-central1-c yugabytedb/yugabyte --namespace yb-demo-us-central1-c -f ../overrides-us-central1-c.yaml --kube-context gke_pgdba-340419_us-central1-c_yugabytedb1 --wait
+W0314 10:47:56.099827   20496 warnings.go:70] spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key: failure-domain.beta.kubernetes.io/zone is deprecated since v1.17; use "topology.kubernetes.io/zone" instead
+W0314 10:47:56.573502   20496 warnings.go:70] spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key: failure-domain.beta.kubernetes.io/zone is deprecated since v1.17; use "topology.kubernetes.io/zone" instead
+Release "yb-demo-us-central1-c" has been upgraded. Happy Helming!
+NAME: yb-demo-us-central1-c
+LAST DEPLOYED: Mon Mar 14 10:47:50 2022
+NAMESPACE: yb-demo-us-central1-c
+STATUS: deployed
+REVISION: 2
+TEST SUITE: None
+NOTES:
+1. Get YugabyteDB Pods by running this command:
+  kubectl --namespace yb-demo-us-central1-c get pods
+
+2. Get list of YugabyteDB services that are running:
+  kubectl --namespace yb-demo-us-central1-c get services
+
+3. Get information about the load balancer services:
+  kubectl get svc --namespace yb-demo-us-central1-c
+
+4. Connect to one of the tablet server:
+  kubectl exec --namespace yb-demo-us-central1-c -it yb-tserver-0 bash
+
+5. Run YSQL shell from inside of a tablet server:
+  kubectl exec --namespace yb-demo-us-central1-c -it yb-tserver-0 -- /home/yugabyte/bin/ysqlsh -h yb-tserver-0.yb-tservers.yb-demo-us-central1-c
+
+6. Cleanup YugabyteDB Pods
+  For helm 2:
+  helm delete yb-demo-us-central1-c --purge
+  For helm 3:
+  helm delete yb-demo-us-central1-c -n yb-demo-us-central1-c
+  NOTE: You need to manually delete the persistent volume
+  kubectl delete pvc --namespace yb-demo-us-central1-c -l app=yb-master
+  kubectl delete pvc --namespace yb-demo-us-central1-c -l app=yb-tserver
+  
+ 8.2
+helm upgrade yb-demo-europe-north1-c yugabytedb/yugabyte --namespace yb-demo-europe-north1-c -f ../overrides-europe-north1-c.yaml --kube-context gke_pgdba-340419_europe-north1-c_yugabytedb2 --wait 
+
+Release "yb-demo-europe-north1-c" has been upgraded. Happy Helming!
+NAME: yb-demo-europe-north1-c
+LAST DEPLOYED: Mon Mar 14 11:18:28 2022
+NAMESPACE: yb-demo-europe-north1-c
+STATUS: deployed
+REVISION: 2
+TEST SUITE: None
+
+
+
+
+8.3
+helm upgrade yb-demo-asia-south2-c yugabytedb/yugabyte --namespace yb-demo-asia-south2-c -f ../overrides-asia-south2-c.yaml --kube-context gke_pgdba-340419_asia-south2-c_yugabytedb3  --wait
+
+kubectl describe pod -n yb-demo-asia-south2-c yb-master-0 --context gke_pgdba-340419_asia-south2-c_yugabytedb3
+
+
+
+kubectl describe pod -n yb-demo-europe-north1-c yb-tserver-0
+8.1
+kubectl describe pod -n yb-demo-us-central1-c yb-master-0 --context gke_pgdba-340419_us-central1-c_yugabytedb1
+
+kubectl describe pod -n yb-demo-us-central1-c yb-master-0
+9.
+$ kubectl get pods -n yb-demo-europe-north1-c --context gke_pgdba-340419_europe-north1-c_yugabytedb2
+NAME           READY   STATUS    RESTARTS     AGE
+yb-master-0    2/2     Running   0 			  22m
+yb-tserver-0   2/2     Running   0            23m
+
+$ kubectl get pods -n yb-demo-us-central1-c --context gke_pgdba-340419_us-central1-c_yugabytedb1
+NAME           READY   STATUS    RESTARTS   AGE
+yb-master-0    2/2     Running   0          54m
+yb-tserver-0   2/2     Running   0          54m
+
+& kubectl get pods -n yb-demo-asia-south2-c --context gke_pgdba-340419_asia-south2-c_yugabytedb3
+NAME           READY   STATUS    RESTARTS      AGE
+yb-master-0    2/2     Running   1 (10m ago)   10m
+yb-tserver-0   2/2     Running   0             10m
+
+10
+10.1
+kubectl get services -n yb-demo-us-central1-c --context gke_pgdba-340419_us-central1-c_yugabytedb1
+NAME                 TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                                                                      AGE
+yb-master-ui         LoadBalancer   10.52.12.254   34.69.244.73     7000:31258/TCP                                                               14h
+yb-masters           ClusterIP      None           <none>           7000/TCP,7100/TCP                                                            14h
+yb-tserver-service   LoadBalancer   10.52.2.45     35.222.136.127   6379:30174/TCP,9042:32345/TCP,5433:31393/TCP                                 14h
+yb-tservers          ClusterIP      None           <none>           9000/TCP,12000/TCP,11000/TCP,13000/TCP,9100/TCP,6379/TCP,9042/TCP,5433/TCP   14h
+
+10.2
+kubectl get services -n yb-demo-europe-north1-c --context gke_pgdba-340419_europe-north1-c_yugabytedb2
+NAME                 TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)                                                                      AGE
+yb-master-ui         LoadBalancer   10.52.31.36    34.88.213.95   7000:30952/TCP                                                               14h
+yb-masters           ClusterIP      None           <none>         7000/TCP,7100/TCP                                                            14h
+yb-tserver-service   LoadBalancer   10.52.17.168   34.88.176.72   6379:32123/TCP,9042:30206/TCP,5433:30738/TCP                                 14h
+yb-tservers          ClusterIP      None           <none>         9000/TCP,12000/TCP,11000/TCP,13000/TCP,9100/TCP,6379/TCP,9042/TCP,5433/TCP   14h
+11 Подключимся к панели администратора
+http://34.69.244.73:7000
+
+http://34.88.176.72:7000
+
+12 
+kubectl exec -n yb-demo-us-central1-c --context gke_pgdba-340419_us-central1-c_yugabytedb1 -it yb-tserver-0 -- ysqlsh -h yb-tserver-0.yb-tservers.yb-demo-us-central1-c
+ 
+
+helm inspect values yugabytedb/yugabyte  -n yb-demo-us-central1-c --context gke_pgdba-340419_us-central1-c_yugabytedb1 > yugabytedb-ops-view1.yaml
+
+
+c:\Projects\windows-amd64>kubectl config get-contexts
+
+NAME                    CHART VERSION   APP VERSION     DESCRIPTION
+yugabytedb/yugabyte     2.13.0          2.13.0.0-b42    YugabyteDB is the high-performance distributed ...

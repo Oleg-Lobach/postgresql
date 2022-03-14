@@ -1,0 +1,44 @@
+isMultiAz: True
+
+AZ: asia-south2-c
+
+masterAddresses: "yb-master-0.yb-masters.yb-demo-us-central1-c.svc.cluster.local:7100,yb-master-0.yb-masters.yb-demo-europe-north1-c.svc.cluster.local:7100,yb-master-0.yb-masters.yb-demo-asia-south2-c.svc.cluster.local:7100"
+
+storage:
+  master:
+    storageClass: "standard-asia-south2-c"
+  tserver:
+    storageClass: "standard-asia-south2-c"
+    
+resource:
+  master:
+    requests:
+      cpu: 1
+      memory: 2Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  tserver:
+    requests:
+      cpu: 1
+      memory: 4Gi
+    limits:
+      cpu: 1
+      memory: 4Gi
+      
+replicas:
+  master: 1
+  tserver: 1
+  totalMasters: 3
+
+gflags:
+  master:
+    placement_cloud: "gke"
+    placement_region: "asia-south2"
+    placement_zone: "asia-south2-c"
+    leader_failure_max_missed_heartbeat_periods: 10
+  tserver:
+    placement_cloud: "gke"
+    placement_region: "asia-south2"
+    placement_zone: "asia-south2-c"
+    leader_failure_max_missed_heartbeat_periods: 10
